@@ -22,8 +22,8 @@ class _ChistesScreenState extends State<ChistesScreen> {
     'viajes'
   ];
 
-  List<String> selectedTemas = [];
-  String chisteGenerado = '';
+  String selectedTema = '';
+  List<String> chistesGenerados = [];
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +32,7 @@ class _ChistesScreenState extends State<ChistesScreen> {
         title: Text('Chistes para niños'),
       ),
       body: Container(
-        color: Colors.lightGreen, // Cambia el color de fondo a uno pastel
+        color: Colors.lightGreen,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -40,13 +40,12 @@ class _ChistesScreenState extends State<ChistesScreen> {
               Wrap(
                 spacing: 10,
                 children: temas.map((tema) {
-                  final isSelected = selectedTemas.contains(tema);
+                  final isSelected = selectedTema == tema;
                   return Padding(
-                    padding:
-                        EdgeInsets.all(10), // Agrega un margen de 10 píxeles
+                    padding: EdgeInsets.all(10),
                     child: SizedBox(
-                      width: 150, // Cambia el ancho del botón
-                      height: 60, // Cambia la altura del botón
+                      width: 150,
+                      height: 60,
                       child: ElevatedButton(
                         onPressed: () => selectTema(tema),
                         child: Text(
@@ -67,17 +66,30 @@ class _ChistesScreenState extends State<ChistesScreen> {
               ),
               SizedBox(height: 20),
               ElevatedButton(
-                onPressed: generarChiste,
-                child: Text('Generar chiste'),
+                onPressed: generarChistes,
+                child: Text('Generar chistes'),
               ),
               SizedBox(height: 20),
-              Container(
-                color: Colors.white, // Cambia el fondo del contenedor a blanco
-                padding: EdgeInsets.all(20),
-                child: Text(
-                  chisteGenerado,
-                  style: TextStyle(fontSize: 16),
-                  textAlign: TextAlign.center,
+              Expanded(
+                child: ListView.builder(
+                  itemCount: chistesGenerados.length,
+                  itemBuilder: (context, index) {
+                    return Container(
+                      color: Colors.white,
+                      padding: EdgeInsets.all(20),
+                      margin: EdgeInsets.symmetric(vertical: 10),
+                      child: Column(
+                        children: [
+                          SizedBox(height: 10),
+                          Text(
+                            chistesGenerados[index],
+                            style: TextStyle(fontSize: 16),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -89,51 +101,13 @@ class _ChistesScreenState extends State<ChistesScreen> {
 
   void selectTema(String tema) {
     setState(() {
-      if (selectedTemas.contains(tema)) {
-        selectedTemas.remove(tema);
-      } else {
-        if (selectedTemas.length < 5) {
-          selectedTemas.add(tema);
-        } else {
-          // Muestra un diálogo o notificación si se alcanza el límite de selecciones
-          showDialog(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: Text('Límite de selecciones alcanzado'),
-                content: Text('Ya has seleccionado 5 temas.'),
-                actions: [
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text('OK'),
-                  ),
-                ],
-              );
-            },
-          );
-        }
-      }
+      selectedTema = tema;
     });
   }
 
   Future<String> obtenerChiste(String tema) async {
     final apiKey = dotenv.env['API_KEY'];
     final url = 'https://api.openai.com/v1/chat/completions';
-
-    // final response = await http.post(
-    //   Uri.parse(url),
-    //   headers: {
-    //     'Authorization': 'Bearer $apiKey',
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: '''
-    //     {
-    //       "prompt": "Genera un chiste para niños sobre $tema",
-    //       "max_tokens": 50,
-    //       'model': 'gpt-3.5-turbo'
-    //     }
-    //   ''',
-    // );
     final response = await http.post(
       Uri.parse(url),
       headers: {
@@ -145,10 +119,10 @@ class _ChistesScreenState extends State<ChistesScreen> {
       "messages": [
         {
           "role": "user",
-          "content": "Genera un chiste para niños sobre $tema"
+          "content": "Genera 5 chiste para niños sobre $tema"
         }
       ],
-      "max_tokens": 50,
+      "max_tokens": 500,
       "model": "gpt-3.5-turbo"
     }
   ''',
@@ -156,7 +130,7 @@ class _ChistesScreenState extends State<ChistesScreen> {
     print(response.body);
 
     if (response.statusCode == 200) {
-      final jsonResponse = response.body;
+      final jsonResponse = utf8.decode(response.bodyBytes);
       final chisteGenerado = extractChiste(jsonResponse);
       return chisteGenerado;
     } else {
@@ -171,26 +145,30 @@ class _ChistesScreenState extends State<ChistesScreen> {
     return chiste;
   }
 
-  void generarChiste() async {
-    if (selectedTemas.isNotEmpty) {
+  void generarChistes() async {
+
+    if (selectedTema.isNotEmpty) {
       try {
-        String tema = selectedTemas.join(', ');
+        String tema = selectedTema;
+        chistesGenerados.clear();
         print('(---------------------------------------)');
         print(tema);
         final chiste = await obtenerChiste(tema);
         setState(() {
-          chisteGenerado = chiste;
+          chistesGenerados.add(chiste);
         });
       } catch (e) {
         setState(() {
-          chisteGenerado = 'Error al obtener el chiste.';
+          chistesGenerados.add('Error al obtener el chiste.');
+          'Error al obtener el chiste.';
         });
       }
     } else {
       setState(() {
-        chisteGenerado =
-            'Selecciona al menos un tema antes de generar un chiste.';
+        chistesGenerados
+            .add('Selecciona al menos un tema antes de generar un chiste.');
       });
     }
+    //}
   }
 }
